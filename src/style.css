@@ -842,3 +842,88 @@ input[type="text"]:focus {
     justify-content: center;
   }
 }
+
+/* ==========================================
+   New Styles: API Type Switcher & Base URL
+   ========================================== */
+.api-type-selector {
+  display: flex;
+  gap: 24px;
+  margin-top: 4px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.radio-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  color: var(--text-muted);
+  user-select: none;
+  font-size: 0.95rem;
+  transition: color 0.2s ease;
+}
+
+.radio-label:hover {
+  color: var(--text-main);
+}
+
+.radio-label input {
+  display: none;
+}
+
+.custom-radio {
+  width: 18px;
+  height: 18px;
+  border: 1px solid var(--border-color);
+  border-radius: 50%;
+  display: inline-block;
+  position: relative;
+  background: rgba(255, 255, 255, 0.03);
+  transition: all 0.2s ease;
+}
+
+.radio-label input:checked + .custom-radio {
+  border-color: var(--accent-pink);
+  background: rgba(236, 72, 153, 0.05);
+}
+
+.radio-label input:checked + .custom-radio::after {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 4px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent-pink);
+}
+
+/* Height transition helper */
+.hidden-height {
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  margin-top: 0;
+  margin-bottom: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  border-color: transparent;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  pointer-events: none;
+}
+
+.show-height {
+  max-height: 80px;
+  opacity: 1;
+  margin-bottom: 16px;
+  pointer-events: auto;
+}
+
+/* Tag colors for OpenAI owned_by */
+.method-tag.openai-owner {
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  color: #34d399;
+}

@@ -16,6 +16,10 @@ let eyeIcon;
 let fetchBtn;
 let saveKeyCheckbox;
 
+let apiTypeRadios;
+let baseUrlInput;
+let baseUrlWrapper;
+
 let placeholderState;
 let loadingState;
 let errorState;
@@ -39,6 +43,10 @@ window.addEventListener('DOMContentLoaded', () => {
   fetchBtn = document.getElementById('fetch-btn');
   saveKeyCheckbox = document.getElementById('save-key-checkbox');
 
+  apiTypeRadios = document.getElementsByName('api-type');
+  baseUrlInput = document.getElementById('base-url-input');
+  baseUrlWrapper = document.getElementById('base-url-wrapper');
+
   placeholderState = document.getElementById('placeholder-state');
   loadingState = document.getElementById('loading-state');
   errorState = document.getElementById('error-state');
@@ -53,10 +61,32 @@ window.addEventListener('DOMContentLoaded', () => {
   modelsGrid = document.getElementById('models-grid');
   toastContainer = document.getElementById('toast-container');
 
-  // Load saved API Key
+  // Load saved configurations
   const savedKey = localStorage.getItem('gemini_api_key');
   if (savedKey && apiKeyInput) {
     apiKeyInput.value = savedKey;
+  }
+
+  const savedType = localStorage.getItem('gemini_api_type');
+  if (savedType && apiTypeRadios) {
+    apiTypeRadios.forEach(radio => {
+      if (radio.value === savedType) {
+        radio.checked = true;
+      }
+    });
+  }
+
+  const savedBaseUrl = localStorage.getItem('openai_base_url');
+  if (savedBaseUrl && baseUrlInput) {
+    baseUrlInput.value = savedBaseUrl;
+  }
+  
+  // Setup dynamic visibility for Base URL
+  updateBaseUrlVisibility();
+  if (apiTypeRadios) {
+    apiTypeRadios.forEach(radio => {
+      radio.addEventListener('change', updateBaseUrlVisibility);
+    });
   }
   
   // Render initial icons
@@ -67,6 +97,19 @@ window.addEventListener('DOMContentLoaded', () => {
   // Setup events
   setupEventListeners();
 });
+
+// Toggle base URL field visibility with height transition
+function updateBaseUrlVisibility() {
+  if (!apiTypeRadios || !baseUrlWrapper) return;
+  const activeRadio = Array.from(apiTypeRadios).find(r => r.checked);
+  if (activeRadio && activeRadio.value === 'openai') {
+    baseUrlWrapper.classList.remove('hidden-height');
+    baseUrlWrapper.classList.add('show-height');
+  } else {
+    baseUrlWrapper.classList.remove('show-height');
+    baseUrlWrapper.classList.add('hidden-height');
+  }
+}
 
 function setupEventListeners() {
   // Toggle password visibility
@@ -127,9 +170,10 @@ function showToast(message, icon = 'check-circle') {
   }, 3000);
 }
 
-// Fetch available models from Gemini API
+// Fetch available models from API
 async function fetchModels() {
   const apiKey = apiKeyInput.value.trim();
+  const apiType = Array.from(apiTypeRadios).find(r => r.checked)?.value || 'gemini';
   
   if (!apiKey) {
     errorMessage.textContent = 'APIキーが入力されていません。入力フィールドを確認してくださいね。';
@@ -141,28 +185,79 @@ async function fetchModels() {
   showToast('APIサーバーにリクエストを送信しています...', 'refresh-cw');
 
   try {
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
-    
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      const message = errorData.error?.message || `HTTPエラーが発生しました (Status: ${response.status})`;
-      throw new Error(message);
-    }
+    let response;
+    let data;
 
-    showToast('データを受信しました。解析中...', 'loader');
-    const data = await response.json();
-    
-    if (!data.models || data.models.length === 0) {
-      throw new Error('利用可能なモデルが見つかりませんでした。');
-    }
+    if (apiType === 'openai') {
+      const rawBase = baseUrlInput.value.trim() || 'https://api.openai.com/v1';
+      const cleanBase = rawBase.replace(/\/$/, '');
+      const url = `${cleanBase}/models`;
+      
+      response = await fetch(url, {
+        headers: {
+          'Authorization': `Bearer ${apiKey}`
+        }
+      });
+      
+      if (!response.ok) {
+        // Try parsing error
+        const errorData = await response.json().catch(() => ({}));
+        const message = errorData.error?.message || `HTTPエラーが発生しました (Status: ${response.status})`;
+        throw new Error(message);
+      }
+      
+      data = await response.json();
+      
+      if (!data.data || data.data.length === 0) {
+        throw new Error('利用可能なモデルが見つかりませんでした。');
+      }
+      
+      // Map OpenAI response format to internal common representation
+      allModels = data.data.map(m => ({
+        name: m.id,
+        displayName: m.id,
+        description: `Owned by: ${m.owned_by || 'unknown'}`,
+        inputTokenLimit: null,
+        outputTokenLimit: null,
+        supportedGenerationMethods: ['OpenAI Model', m.owned_by || 'openai'],
+        isOpenAI: true
+      }));
 
-    allModels = data.models;
-    
-    // Save API key if checkbox checked
-    if (saveKeyCheckbox.checked) {
-      localStorage.setItem('gemini_api_key', apiKey);
+      // Save configurations
+      if (saveKeyCheckbox.checked) {
+        localStorage.setItem('gemini_api_key', apiKey);
+        localStorage.setItem('gemini_api_type', 'openai');
+        localStorage.setItem('openai_base_url', rawBase);
+      } else {
+        clearSavedConfig();
+      }
+
     } else {
-      localStorage.removeItem('gemini_api_key');
+      // Gemini API
+      response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        const message = errorData.error?.message || `HTTPエラーが発生しました (Status: ${response.status})`;
+        throw new Error(message);
+      }
+
+      showToast('データを受信しました。解析中...', 'loader');
+      data = await response.json();
+      
+      if (!data.models || data.models.length === 0) {
+        throw new Error('利用可能なモデルが見つかりませんでした。');
+      }
+
+      allModels = data.models;
+
+      // Save configurations
+      if (saveKeyCheckbox.checked) {
+        localStorage.setItem('gemini_api_key', apiKey);
+        localStorage.setItem('gemini_api_type', 'gemini');
+      } else {
+        clearSavedConfig();
+      }
     }
 
     // Success toast
@@ -178,13 +273,24 @@ async function fetchModels() {
     
     if (error.message.includes('API key not valid')) {
       userFriendlyMsg = '入力されたAPIキーが無効です。正しいキーを入力してください。';
-    } else if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
-      userFriendlyMsg = 'ネットワークエラーが発生しました。接続を確認してくださいね。';
+    } else if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError') || error.name === 'TypeError') {
+      if (apiType === 'openai') {
+        userFriendlyMsg = 'ネットワークエラーが発生しました。接続エラー、またはCORS(クロスオリジン制限)でリクエストがブロックされた可能性が高いわ。本家OpenAIやDeepSeekなどの一部の外部APIは、キーの安全性のためにブラウザからの直接アクセスを禁止しているの。ローカルAPI(OllamaやLM Studio等)や、CORSを許可しているエンドポイントで試してみてね♡';
+      } else {
+        userFriendlyMsg = 'ネットワークエラーが発生しました。接続を確認してくださいね。';
+      }
     }
     
     errorMessage.textContent = userFriendlyMsg;
     switchState('error');
   }
+}
+
+// Clear configurations helper
+function clearSavedConfig() {
+  localStorage.removeItem('gemini_api_key');
+  localStorage.removeItem('gemini_api_type');
+  localStorage.removeItem('openai_base_url');
 }
 
 // Render filtered models
@@ -202,7 +308,8 @@ function renderModels() {
     // Method filter
     const matchesMethod = 
       filterMethod === 'all' || 
-      (model.supportedGenerationMethods && model.supportedGenerationMethods.includes(filterMethod));
+      (model.supportedGenerationMethods && model.supportedGenerationMethods.includes(filterMethod)) ||
+      (model.isOpenAI && filterMethod === 'generateContent'); // Map generateContent filter to OpenAI models
 
     return matchesSearch && matchesMethod;
   });
@@ -226,18 +333,19 @@ function renderModels() {
   modelsGrid.innerHTML = filteredModels.map(model => {
     // Format model limits (e.g. 1M -> 1,048,576)
     const formatLimit = (num) => {
-      if (!num) return 'なし';
+      if (!num) return 'なし/不明';
       return num.toLocaleString();
     };
 
-    // Clean name for display (e.g. models/gemini-1.5-flash -> gemini-1.5-flash)
+    // Clean name for display
     const cleanName = model.name.replace('models/', '');
 
     // Render badges for methods
     const tagsHtml = (model.supportedGenerationMethods || [])
       .map(method => {
-        const isGenerate = method === 'generateContent';
-        return `<span class="method-tag ${isGenerate ? 'generate' : ''}">${method}</span>`;
+        const isGenerate = method === 'generateContent' || method === 'OpenAI Model';
+        const isOpenAI = model.isOpenAI;
+        return `<span class="method-tag ${isGenerate ? 'generate' : ''} ${isOpenAI ? 'openai-owner' : ''}">${method}</span>`;
       })
       .join('');
 

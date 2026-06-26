@@ -34,10 +34,30 @@
         <!-- APIキー入力セクション -->
         <section class="card api-section" aria-labelledby="api-heading">
           <h2 id="api-heading" class="sr-only">APIキー設定</h2>
+          
+          <div class="api-type-selector">
+            <label class="radio-label">
+              <input type="radio" name="api-type" value="gemini" checked />
+              <span class="custom-radio"></span>
+              Google Gemini
+            </label>
+            <label class="radio-label">
+              <input type="radio" name="api-type" value="openai" />
+              <span class="custom-radio"></span>
+              OpenAI 互換 (OpenAI, DeepSeek, Local LLM...)
+            </label>
+          </div>
+
+          <!-- Base URL入力（OpenAI互換の時だけ表示） -->
+          <div id="base-url-wrapper" class="input-wrapper hidden-height">
+            <i data-lucide="globe" class="input-icon"></i>
+            <input type="text" id="base-url-input" placeholder="エンドポイント URL (例: https://api.openai.com/v1)" aria-label="Base URLを入力してください" />
+          </div>
+
           <div class="api-input-group">
             <div class="input-wrapper">
               <i data-lucide="key" class="input-icon"></i>
-              <input type="password" id="api-key-input" placeholder="AIzaSy...（APIキーを入力してね）" aria-label="Gemini APIキーを入力してください" />
+              <input type="password" id="api-key-input" placeholder="APIキーを入力してね" aria-label="APIキーを入力してください" />
               <button type="button" id="toggle-visible-btn" class="icon-btn" title="表示/非表示を切り替え">
                 <i data-lucide="eye" id="eye-icon"></i>
               </button>
