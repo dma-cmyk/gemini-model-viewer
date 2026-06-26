@@ -330,10 +330,25 @@ function handleBulkCopy() {
 
 // Global Error Handler for Debugging
 window.addEventListener('error', (event) => {
+  // Ignore external extension/blob errors to avoid cluttering the UI
+  const isInternal = 
+    !event.filename || 
+    event.filename.includes('main.js') || 
+    event.filename.includes('index-') || 
+    event.filename.includes('gemini-model-viewer');
+    
+  if (!isInternal) return;
+
   showDebugError(`JS Error: ${event.message} at ${event.filename}:${event.lineno}`);
 });
 
 window.addEventListener('unhandledrejection', (event) => {
+  // Ignore external extension/blob promise rejections
+  const reasonStr = String(event.reason || '');
+  if (reasonStr.includes('addListener') || reasonStr.includes('Extension') || reasonStr.includes('contentscript')) {
+    return;
+  }
+
   showDebugError(`Unhandled Promise Rejection: ${event.reason}`);
 });
 
